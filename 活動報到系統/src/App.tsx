@@ -31,7 +31,7 @@ export default function App() {
     if (searchResult) {
       // Prevent double check-ins
       if (checkedIn.some((r) => r.id === searchResult.id)) {
-        alert('此人員已報到！');
+        alert('此民眾已報到！');
         return;
       }
       const now = new Date();
@@ -45,7 +45,7 @@ export default function App() {
 
     const handleExport = () => {
     if (checkedIn.length === 0) {
-      alert('目前沒有已報到的人員可匯出。');
+      alert('目前沒有已報到的民眾可匯出。');
       return;
     }
 
@@ -88,7 +88,8 @@ export default function App() {
 
       <div className="flex flex-col lg:flex-row gap-8 p-4 sm:p-8 max-w-7xl mx-auto">
         {/* Left Side: Check-in Area */}
-        <div className="lg:w-1/2">
+        <div className="w-full lg:w-1/3
+        lg:sticky lg:top-8 self-start">
 
                                                                               <main className="bg-white rounded-3xl p-6 sm:p-8">
           <div className="search-section mb-6">
@@ -106,7 +107,7 @@ export default function App() {
                 className="bg-[#5A5A40] text-white px-6 py-3 rounded-full hover:bg-[#4a4a30] transition-colors duration-300 flex items-center justify-center gap-2"
               >
                 <Search size={20} />
-                <span>查詢</span>
+                <span className="whitespace-nowrap">查詢</span>
               </button>
             </div>
           </div>
@@ -171,7 +172,7 @@ export default function App() {
                       )) : <li className='text-center text-gray-500 py-4'>尚無報到記錄</li>}
                   </ul>
               </div>
-              <div className="m-full">
+              <div className="w-full">
                   <button 
                       onClick={handleExport}
                       className="bg-gray-700 text-white px-6 py-3 rounded-full hover:bg-gray-800 transition-colors duration-300 flex items-center justify-center gap-2 mx-auto"
