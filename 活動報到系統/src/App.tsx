@@ -27,6 +27,7 @@ interface Registrant {
   id: string;
   name: string;
   phone: string;
+  isPilgrimage: string;
 }
 
 interface CheckedInRegistrant extends Registrant {
@@ -111,11 +112,17 @@ export default function App() {
       const sheet = workbook.Sheets[workbook.SheetNames[0]];
       const json = XLSX.utils.sheet_to_json(sheet) as any[];
 
-      const importedData: Registrant[] = json.map((row) => ({
-        id: (row['身分證字號'] || row['身分證'] || row['ID'] || '').toString().trim(),
-        name: (row['姓名'] || row['Name'] || '').toString().trim(),
-        phone: (row['電話'] || row['手機'] || row['Phone'] || '').toString().trim(),
-      })).filter(r => r.id && r.name);
+      const importedData: Registrant[] = json.map((row) => {
+        const rawPilgrimage = (row['進香'] || row['進香活動'] || row['參加進香'] || row['進香禮品'] || '否').toString().trim();
+        const isPilgrimage = (rawPilgrimage === '是' || rawPilgrimage === 'O' || rawPilgrimage === '1') ? 'O' : 'X';
+        
+        return {
+          id: (row['身分證字號'] || row['身分證'] || row['ID'] || '').toString().trim(),
+          name: (row['姓名'] || row['Name'] || '').toString().trim(),
+          phone: (row['電話'] || row['手機'] || row['Phone'] || '').toString().trim(),
+          isPilgrimage: isPilgrimage,
+        };
+      }).filter(r => r.id && r.name);
 
       if (importedData.length > 0) {
         try {
@@ -184,12 +191,24 @@ export default function App() {
       '姓名': r.name,
       '身分證字號': r.id,
       '電話': r.phone,
+      '進香禮品': r.isPilgrimage === '是' || r.isPilgrimage === 'O' ? 'O' : 'X',
       '狀態': r.status,
       '紀錄時間': new Date(r.checkInTime).toLocaleString('zh-TW'),
     })));
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, '活動名單');
     XLSX.writeFile(wb, '報到紀錄.xlsx');
+  };
+
+  const handleDownloadSample = () => {
+    const sampleData = [
+      { '姓名': '王小明', '身分證字號': 'A123456789', '電話': '0912345678', '進香禮品': 'O' },
+      { '姓名': '李小華', '身分證字號': 'B223456789', '電話': '0987654321', '進香禮品': 'X' }
+    ];
+    const ws = XLSX.utils.json_to_sheet(sampleData);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, '範例名單');
+    XLSX.writeFile(wb, '報到系統_範例名單.xlsx');
   };
 
   if (!isAuthenticated) return <LoginPage onLogin={handleLogin} />;
@@ -203,6 +222,9 @@ export default function App() {
         </div>
         
         <div className="flex gap-3">
+          <button onClick={handleDownloadSample} className="flex items-center gap-2 bg-white border-2 border-blue-200 text-blue-500 px-4 py-2 rounded-xl hover:bg-blue-50 transition-all">
+            <FileDown size={18} /> 下載範例
+          </button>
           <button onClick={handleReset} className="flex items-center gap-2 bg-white border-2 border-red-200 text-red-500 px-4 py-2 rounded-xl hover:bg-red-50 transition-all">
             <RotateCcw size={18} /> 重置雲端
           </button>
@@ -244,7 +266,9 @@ export default function App() {
                     <div className="flex justify-between items-start">
                       <div>
                         <p className="font-bold text-gray-800 text-lg">{person.name}</p>
-                        <p className="text-xs font-mono text-emerald-600 mt-1 uppercase bg-emerald-50 inline-block px-1 rounded">{person.id}</p>
+                        <p className="text-lg font-mono text-emerald-600 mt-1 uppercase bg-emerald-50 inline-block px-2 py-0.5 rounded">{person.id}</p>
+                        <p className="text-lg text-gray-500 mt-1">{person.phone}</p>
+                        <p className="text-lg font-bold text-blue-600 mt-1">進香禮品：{person.isPilgrimage === '是' || person.isPilgrimage === 'O' ? 'O' : 'X'}</p>
                       </div>
                       {record && <span className={`text-xs font-bold px-2 py-1 rounded-lg ${record.status === '已報到' ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-200 text-gray-600'}`}>{record.status}</span>}
                     </div>
@@ -284,9 +308,10 @@ export default function App() {
                         <p className="font-medium text-gray-700">{r.name}</p>
                         <span className={`text-[10px] px-1 rounded ${r.status === '已報到' ? 'bg-emerald-50 text-emerald-600' : 'bg-gray-100 text-gray-500'}`}>{r.status}</span>
                       </td>
-                      <td className="py-4 text-xs">
-                        <p className="text-gray-600">{r.phone}</p>
-                        <p className="text-gray-400 uppercase font-mono">{r.id}</p>
+                      <td className="py-4">
+                        <p className="text-base text-gray-600">{r.phone}</p>
+                        <p className="text-base font-mono text-gray-400 uppercase">{r.id}</p>
+                        <p className="text-base font-bold text-blue-500">進香禮品：{r.isPilgrimage === '是' || r.isPilgrimage === 'O' ? 'O' : 'X'}</p>
                       </td>
                       <td className="py-4 text-right">
                         <button onClick={() => r.firebaseId && removeRecord(r.firebaseId)} className="text-gray-300 hover:text-red-500 transition-colors">

@@ -1,5 +1,5 @@
 {
-  "name": "活動報到系統",
+  "name": "Remix: 活動報到系統",
   "description": "一個簡單的活動報到系統，可以透過手機號碼查詢報名者並完成報到，並可匯出報到名單。",
   "requestFramePermissions": []
 }
