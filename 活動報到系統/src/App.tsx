@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import LoginPage from './LoginPage';
 import { Search, UserCheck, Smartphone, CreditCard, FileUp, FileDown, Users, Trash2, RotateCcw } from 'lucide-react';
 import * as XLSX from 'xlsx';
@@ -198,7 +198,7 @@ export default function App() {
     <div className="min-h-screen font-sans text-[#1a1a1a] bg-[#f5f5f0] p-4 sm:p-8">
       <div className="max-w-7xl mx-auto mb-8 flex flex-col md:flex-row justify-between items-center gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-[#5A5A40]">【2026 世界腎臟日健走】開春護腎迎健康</h1>
+          <h1 className="text-3xl font-bold text-[#5A5A40]">報到系統</h1>
           <p className="text-gray-500">雲端名單：{registrants.length} | 已處理：{checkedIn.length}</p>
         </div>
         

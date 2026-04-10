@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import React, { useState } from 'react';
 
 interface LoginPageProps {
   onLogin: () => void;
@@ -23,8 +23,8 @@ export default function LoginPage({ onLogin }: LoginPageProps) {
     <div className="min-h-screen bg-[#f5f5f0] flex items-center justify-center font-sans">
       <div className="w-full max-w-sm p-8 space-y-6 bg-white rounded-3xl shadow-sm border">
         <div className="text-center">
-          <h1 className="text-2xl font-bold text-[#5A5A40]">【2026 世界腎臟日健走】</h1>
-          <p className="text-gray-500 mt-2">報到系統登入</p>
+          <h1 className="text-2xl font-bold text-[#5A5A40]">報到系統</h1>
+          <p className="text-gray-500 mt-2">登入</p>
         </div>
                 <form onSubmit={handleSubmit} className="space-y-4">
                     <div>
