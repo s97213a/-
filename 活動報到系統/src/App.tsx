@@ -189,7 +189,7 @@ export default function App() {
     })));
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, '活動名單');
-    XLSX.writeFile(wb, '2026世界腎臟日_報到紀錄.xlsx');
+    XLSX.writeFile(wb, '報到紀錄.xlsx');
   };
 
   if (!isAuthenticated) return <LoginPage onLogin={handleLogin} />;
