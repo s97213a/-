@@ -223,7 +223,7 @@ export default function App() {
       '姓名': r.name,
       '身分證字號': r.id,
       '生日(民國年)': r.birthday,
-      '進香禮品': r.isPilgrimage === '是' || r.isPilgrimage === 'O' ? '是' : '否',
+      '進香禮品': r.isPilgrimage === '是' || r.isPilgrimage === 'O' ? 'O' : 'X',
       '狀態': r.status,
       '紀錄時間': new Date(r.checkInTime).toLocaleString('zh-TW'),
     })));
@@ -234,8 +234,8 @@ export default function App() {
 
   const handleDownloadSample = () => {
     const sampleData = [
-      { '姓名': '王小明', '身分證字號': 'A123456789', '生日(民國年)': '79/01/01', '進香禮品': '是' },
-      { '姓名': '李小華', '身分證字號': 'B223456789', '生日(民國年)': '85/12/31', '進香禮品': '否' }
+      { '姓名': '王小明', '身分證字號': 'A123456789', '生日(民國年)': '79/01/01', '進香禮品': 'O' },
+      { '姓名': '李小華', '身分證字號': 'B223456789', '生日(民國年)': '85/12/31', '進香禮品': 'X' }
     ];
     const ws = XLSX.utils.json_to_sheet(sampleData);
     const wb = XLSX.utils.book_new();
@@ -292,7 +292,7 @@ export default function App() {
                         <p className="font-bold text-gray-800 text-lg">{person.name}</p>
                         <p className="text-lg font-mono text-emerald-600 mt-1 uppercase bg-emerald-50 inline-block px-2 py-0.5 rounded">{person.id}</p>
                         <p className="text-lg text-gray-500 mt-1">生日：{person.birthday}</p>
-                        <p className="text-lg font-bold text-blue-600 mt-1">進香禮品：{person.isPilgrimage === '是' || person.isPilgrimage === 'O' ? '是' : '否'}</p>
+                        <p className="text-lg font-bold text-blue-600 mt-1">進香禮品：{person.isPilgrimage === '是' || person.isPilgrimage === 'O' ? 'O' : 'X'}</p>
                       </div>
                       {record && <span className={`text-xs font-bold px-2 py-1 rounded-lg ${record.status === '已報到' ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-200 text-gray-600'}`}>{record.status}</span>}
                     </div>
@@ -335,7 +335,7 @@ export default function App() {
                       <td className="py-4">
                         <p className="text-base text-gray-600">生日：{r.birthday}</p>
                         <p className="text-base font-mono text-gray-400 uppercase">{r.id}</p>
-                        <p className="text-base font-bold text-blue-500">進香禮品：{r.isPilgrimage === '是' || r.isPilgrimage === 'O' ? '是' : '否'}</p>
+                        <p className="text-base font-bold text-blue-500">進香禮品：{r.isPilgrimage === '是' || r.isPilgrimage === 'O' ? 'O' : 'X'}</p>
                       </td>
                       <td className="py-4 text-right">
                         <button onClick={() => r.firebaseId && removeRecord(r.firebaseId)} className="text-gray-300 hover:text-red-500 transition-colors">
