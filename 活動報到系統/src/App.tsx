@@ -106,6 +106,9 @@ export default function App() {
     const file = e.target.files?.[0];
     if (!file) return;
 
+    // 清空 input 的 value，這樣下次選擇同一個檔案時才會再次觸發 onChange 事件
+    e.target.value = '';
+
     const reader = new FileReader();
     reader.onload = async (event) => {
       const data = event.target?.result;
