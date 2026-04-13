@@ -137,14 +137,33 @@ export default function App() {
       });
 
       if (allImportedData.length > 0) {
+        // 過濾掉已經存在於雲端的名單 (比對身分證與姓名)
+        const uniqueNewRegistrants: Registrant[] = [];
+        const seen = new Set<string>();
+
+        allImportedData.forEach((item) => {
+          const uniqueKey = `${item.id}-${item.name}`;
+          const existsInDb = registrants.some(r => r.id === item.id && r.name === item.name);
+          
+          if (!existsInDb && !seen.has(uniqueKey)) {
+            seen.add(uniqueKey);
+            uniqueNewRegistrants.push(item);
+          }
+        });
+
+        if (uniqueNewRegistrants.length === 0) {
+          alert("沒有新增任何資料，上傳的名單皆已存在於系統中。");
+          return;
+        }
+
         try {
           const batch = writeBatch(db);
-          allImportedData.forEach((item) => {
+          uniqueNewRegistrants.forEach((item) => {
             const docRef = doc(collection(db, "registrants")); // 自動生成唯一 ID，避免身分證重複時被覆蓋
             batch.set(docRef, item);
           });
           await batch.commit();
-          alert(`成功同步 ${allImportedData.length} 筆名單至雲端！`);
+          alert(`成功新增 ${uniqueNewRegistrants.length} 筆新名單至雲端！(略過 ${allImportedData.length - uniqueNewRegistrants.length} 筆重複資料)`);
         } catch (e) {
           alert("上傳雲端失敗，請確認 Firebase Rules 設定。");
         }
