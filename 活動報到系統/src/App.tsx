@@ -24,6 +24,7 @@ import {
 
 // 定義資料結構
 interface Registrant {
+  firebaseId?: string; // Firestore 的文件 ID (registrants collection)
   id: string;
   name: string;
   birthday: string;
@@ -31,7 +32,8 @@ interface Registrant {
 }
 
 interface CheckedInRegistrant extends Registrant {
-  firebaseId?: string; // Firestore 的文件 ID
+  firebaseId?: string; // Firestore 的文件 ID (checkedIn collection)
+  registrantId?: string; // 對應 registrants collection 的 ID
   checkInTime: string; 
   status: '已報到' | '放棄領取';
 }
@@ -53,7 +55,7 @@ export default function App() {
 
     // 監聽原始名單
     const unsubRegistrants = onSnapshot(collection(db, "registrants"), (snapshot) => {
-      const data = snapshot.docs.map(doc => ({ ...doc.data() } as Registrant));
+      const data = snapshot.docs.map(doc => ({ firebaseId: doc.id, ...doc.data() } as Registrant));
       setRegistrants(data);
     });
 
@@ -108,33 +110,43 @@ export default function App() {
     reader.onload = async (event) => {
       const data = event.target?.result;
       const workbook = XLSX.read(data, { type: 'binary' });
-      const sheet = workbook.Sheets[workbook.SheetNames[0]];
-      const json = XLSX.utils.sheet_to_json(sheet) as any[];
+      
+      let allImportedData: Registrant[] = [];
 
-      const importedData: Registrant[] = json.map((row) => {
-        const rawPilgrimage = (row['進香'] || row['進香活動'] || row['參加進香'] || row['進香禮品'] || '否').toString().trim();
-        const isPilgrimage = (rawPilgrimage === '是' || rawPilgrimage === 'O' || rawPilgrimage === '1') ? 'O' : 'X';
-        
-        return {
-          id: (row['身分證字號'] || row['身分證'] || row['ID'] || '').toString().trim(),
-          name: (row['姓名'] || row['Name'] || '').toString().trim(),
-          birthday: (row['生日'] || row['Birthday'] || '').toString().trim(),
-          isPilgrimage: isPilgrimage,
-        };
-      }).filter(r => r.id && r.name);
+      // 遍歷所有工作表 (Sheets)
+      workbook.SheetNames.forEach(sheetName => {
+        const sheet = workbook.Sheets[sheetName];
+        const json = XLSX.utils.sheet_to_json(sheet) as any[];
 
-      if (importedData.length > 0) {
+        const sheetData: Registrant[] = json.map((row) => {
+          const rawPilgrimage = (row['進香禮品'] || row['進香'] || row['進香活動'] || row['參加進香'] || '否').toString().trim();
+          const isPilgrimage = (rawPilgrimage === '是' || rawPilgrimage.toUpperCase() === 'O' || rawPilgrimage === '1' || rawPilgrimage.toUpperCase() === 'Y' || rawPilgrimage.toLowerCase() === 'true') ? 'O' : 'X';
+          
+          return {
+            id: (row['身分證字號'] || row['身分證'] || row['ID'] || '').toString().trim(),
+            name: (row['姓名'] || row['Name'] || '').toString().trim(),
+            birthday: (row['生日(民國年)'] || row['生日'] || row['Birthday'] || '').toString().trim(),
+            isPilgrimage: isPilgrimage,
+          };
+        }).filter(r => r.id && r.name);
+
+        allImportedData = [...allImportedData, ...sheetData];
+      });
+
+      if (allImportedData.length > 0) {
         try {
           const batch = writeBatch(db);
-          importedData.forEach((item) => {
-            const docRef = doc(db, "registrants", item.id);
+          allImportedData.forEach((item) => {
+            const docRef = doc(collection(db, "registrants")); // 自動生成唯一 ID，避免身分證重複時被覆蓋
             batch.set(docRef, item);
           });
           await batch.commit();
-          alert(`成功同步 ${importedData.length} 筆名單至雲端！`);
+          alert(`成功同步 ${allImportedData.length} 筆名單至雲端！`);
         } catch (e) {
           alert("上傳雲端失敗，請確認 Firebase Rules 設定。");
         }
+      } else {
+        alert("找不到有效的名單資料，請確認欄位名稱是否正確。");
       }
     };
     reader.readAsBinaryString(file);
@@ -155,11 +167,12 @@ export default function App() {
 
   // --- 5. 報到/放棄 (寫入雲端) ---
   const handleAction = async (person: Registrant, status: '已報到' | '放棄領取') => {
-    if (checkedIn.some((r) => r.id === person.id)) return alert('此民眾已有紀錄！');
+    if (checkedIn.some((r) => r.registrantId === person.firebaseId || (r.id === person.id && r.name === person.name))) return alert('此民眾已有紀錄！');
     
     try {
       await addDoc(collection(db, "checkedIn"), {
         ...person,
+        registrantId: person.firebaseId,
         checkInTime: new Date().toISOString(),
         status
       });
@@ -187,8 +200,8 @@ export default function App() {
     const ws = XLSX.utils.json_to_sheet(checkedIn.map(r => ({
       '姓名': r.name,
       '身分證字號': r.id,
-      '生日': r.birthday,
-      '進香禮品': r.isPilgrimage === '是' || r.isPilgrimage === 'O' ? 'O' : 'X',
+      '生日(民國年)': r.birthday,
+      '進香禮品': r.isPilgrimage === '是' || r.isPilgrimage === 'O' ? '是' : '否',
       '狀態': r.status,
       '紀錄時間': new Date(r.checkInTime).toLocaleString('zh-TW'),
     })));
@@ -199,8 +212,8 @@ export default function App() {
 
   const handleDownloadSample = () => {
     const sampleData = [
-      { '姓名': '王小明', '身分證字號': 'A123456789', '生日': '1990/01/01', '進香禮品': 'O' },
-      { '姓名': '李小華', '身分證字號': 'B223456789', '生日': '1985/12/31', '進香禮品': 'X' }
+      { '姓名': '王小明', '身分證字號': 'A123456789', '生日(民國年)': '79/01/01', '進香禮品': '是' },
+      { '姓名': '李小華', '身分證字號': 'B223456789', '生日(民國年)': '85/12/31', '進香禮品': '否' }
     ];
     const ws = XLSX.utils.json_to_sheet(sampleData);
     const wb = XLSX.utils.book_new();
@@ -249,15 +262,15 @@ export default function App() {
             <div className="mt-6 space-y-3">
               {hasSearched && searchResults.length === 0 && <div className="text-center py-8 text-gray-400 border-2 border-dashed rounded-2xl">未找到名單</div>}
               {searchResults.map(person => {
-                const record = checkedIn.find(c => c.id === person.id);
+                const record = checkedIn.find(c => c.registrantId === person.firebaseId || (c.id === person.id && c.name === person.name));
                 return (
-                  <div key={person.id} className="bg-gray-50 p-4 rounded-2xl border border-gray-100 flex flex-col gap-4">
+                  <div key={person.firebaseId || person.id} className="bg-gray-50 p-4 rounded-2xl border border-gray-100 flex flex-col gap-4">
                     <div className="flex justify-between items-start">
                       <div>
                         <p className="font-bold text-gray-800 text-lg">{person.name}</p>
                         <p className="text-lg font-mono text-emerald-600 mt-1 uppercase bg-emerald-50 inline-block px-2 py-0.5 rounded">{person.id}</p>
                         <p className="text-lg text-gray-500 mt-1">生日：{person.birthday}</p>
-                        <p className="text-lg font-bold text-blue-600 mt-1">進香禮品：{person.isPilgrimage === '是' || person.isPilgrimage === 'O' ? 'O' : 'X'}</p>
+                        <p className="text-lg font-bold text-blue-600 mt-1">進香禮品：{person.isPilgrimage === '是' || person.isPilgrimage === 'O' ? '是' : '否'}</p>
                       </div>
                       {record && <span className={`text-xs font-bold px-2 py-1 rounded-lg ${record.status === '已報到' ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-200 text-gray-600'}`}>{record.status}</span>}
                     </div>
@@ -300,7 +313,7 @@ export default function App() {
                       <td className="py-4">
                         <p className="text-base text-gray-600">生日：{r.birthday}</p>
                         <p className="text-base font-mono text-gray-400 uppercase">{r.id}</p>
-                        <p className="text-base font-bold text-blue-500">進香禮品：{r.isPilgrimage === '是' || r.isPilgrimage === 'O' ? 'O' : 'X'}</p>
+                        <p className="text-base font-bold text-blue-500">進香禮品：{r.isPilgrimage === '是' || r.isPilgrimage === 'O' ? '是' : '否'}</p>
                       </td>
                       <td className="py-4 text-right">
                         <button onClick={() => r.firebaseId && removeRecord(r.firebaseId)} className="text-gray-300 hover:text-red-500 transition-colors">
