@@ -5,7 +5,7 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import LoginPage from './LoginPage';
-import { Search, UserCheck, Smartphone, CreditCard, FileUp, FileDown, Users, Trash2, RotateCcw } from 'lucide-react';
+import { Search, UserCheck, FileUp, FileDown, Users, Trash2, RotateCcw } from 'lucide-react';
 import * as XLSX from 'xlsx';
 
 // --- 引入 Firebase 配置 ---
@@ -26,7 +26,7 @@ import {
 interface Registrant {
   id: string;
   name: string;
-  phone: string;
+  birthday: string;
   isPilgrimage: string;
 }
 
@@ -40,7 +40,6 @@ export default function App() {
   const [registrants, setRegistrants] = useState<Registrant[]>([]);
   const [checkedIn, setCheckedIn] = useState<CheckedInRegistrant[]>([]);
   const [inputValue, setInputValue] = useState('');
-  const [searchType, setSearchType] = useState<'phone' | 'id'>('phone');
   const [searchResults, setSearchResults] = useState<Registrant[]>([]);
   const [hasSearched, setHasSearched] = useState(false);
   const [checkedInSearch, setCheckedInSearch] = useState('');
@@ -119,7 +118,7 @@ export default function App() {
         return {
           id: (row['身分證字號'] || row['身分證'] || row['ID'] || '').toString().trim(),
           name: (row['姓名'] || row['Name'] || '').toString().trim(),
-          phone: (row['電話'] || row['手機'] || row['Phone'] || '').toString().trim(),
+          birthday: (row['生日'] || row['Birthday'] || '').toString().trim(),
           isPilgrimage: isPilgrimage,
         };
       }).filter(r => r.id && r.name);
@@ -145,13 +144,11 @@ export default function App() {
   const handleSearch = () => {
     if (registrants.length === 0) return alert('雲端尚無名單，請先匯入！');
     setHasSearched(true);
-    const term = inputValue.trim();
+    const term = inputValue.trim().toUpperCase();
     if (!term) return setSearchResults([]);
 
     let found = registrants.filter((r) => 
-      searchType === 'phone' 
-        ? r.phone.endsWith(term) 
-        : r.id.toUpperCase() === term.toUpperCase()
+      r.id.toUpperCase().startsWith(term)
     );
     setSearchResults(found);
   };
@@ -190,7 +187,7 @@ export default function App() {
     const ws = XLSX.utils.json_to_sheet(checkedIn.map(r => ({
       '姓名': r.name,
       '身分證字號': r.id,
-      '電話': r.phone,
+      '生日': r.birthday,
       '進香禮品': r.isPilgrimage === '是' || r.isPilgrimage === 'O' ? 'O' : 'X',
       '狀態': r.status,
       '紀錄時間': new Date(r.checkInTime).toLocaleString('zh-TW'),
@@ -202,8 +199,8 @@ export default function App() {
 
   const handleDownloadSample = () => {
     const sampleData = [
-      { '姓名': '王小明', '身分證字號': 'A123456789', '電話': '0912345678', '進香禮品': 'O' },
-      { '姓名': '李小華', '身分證字號': 'B223456789', '電話': '0987654321', '進香禮品': 'X' }
+      { '姓名': '王小明', '身分證字號': 'A123456789', '生日': '1990/01/01', '進香禮品': 'O' },
+      { '姓名': '李小華', '身分證字號': 'B223456789', '生日': '1985/12/31', '進香禮品': 'X' }
     ];
     const ws = XLSX.utils.json_to_sheet(sampleData);
     const wb = XLSX.utils.book_new();
@@ -245,16 +242,8 @@ export default function App() {
             <h2 className="text-xl font-bold text-gray-700 mb-6 flex items-center gap-2">
               <Users size={20} className="text-[#5A5A40]"/> 櫃檯報到
             </h2>
-            <div className="flex mb-5 bg-gray-100 p-1 rounded-2xl">
-              <button onClick={() => setSearchType('phone')} className={`flex-1 py-2 rounded-xl text-sm transition-all ${searchType === 'phone' ? 'bg-white shadow-sm text-[#5A5A40] font-bold' : 'text-gray-400'}`}>
-                <Smartphone size={16} className="inline mr-1"/>手機末三碼
-              </button>
-              <button onClick={() => setSearchType('id')} className={`flex-1 py-2 rounded-xl text-sm transition-all ${searchType === 'id' ? 'bg-white shadow-sm text-[#5A5A40] font-bold' : 'text-gray-400'}`}>
-                <CreditCard size={16} className="inline mr-1"/>身分證字號
-              </button>
-            </div>
             <div className="flex gap-2">
-              <input type="text" value={inputValue} onChange={(e) => setInputValue(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && handleSearch()} placeholder={searchType === 'phone' ? "輸入末三碼" : "輸入完整字號"} className="flex-grow px-5 py-3 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-[#5A5A40] outline-none" />
+              <input type="text" value={inputValue} onChange={(e) => setInputValue(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && handleSearch()} placeholder="輸入身分證前五碼 (或完整字號)" className="flex-grow px-5 py-3 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-[#5A5A40] outline-none" />
               <button onClick={handleSearch} className="bg-[#5A5A40] text-white p-4 rounded-2xl hover:opacity-90"><Search /></button>
             </div>
             <div className="mt-6 space-y-3">
@@ -267,7 +256,7 @@ export default function App() {
                       <div>
                         <p className="font-bold text-gray-800 text-lg">{person.name}</p>
                         <p className="text-lg font-mono text-emerald-600 mt-1 uppercase bg-emerald-50 inline-block px-2 py-0.5 rounded">{person.id}</p>
-                        <p className="text-lg text-gray-500 mt-1">{person.phone}</p>
+                        <p className="text-lg text-gray-500 mt-1">生日：{person.birthday}</p>
                         <p className="text-lg font-bold text-blue-600 mt-1">進香禮品：{person.isPilgrimage === '是' || person.isPilgrimage === 'O' ? 'O' : 'X'}</p>
                       </div>
                       {record && <span className={`text-xs font-bold px-2 py-1 rounded-lg ${record.status === '已報到' ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-200 text-gray-600'}`}>{record.status}</span>}
@@ -290,7 +279,7 @@ export default function App() {
           <div className="bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden flex flex-col h-[600px]">
             <div className="p-6 border-b border-gray-50">
               <h2 className="text-xl font-bold text-gray-700">即時處理名單 (雲端)</h2>
-              <input type="text" placeholder="搜尋姓名、手機或身分證..." value={checkedInSearch} onChange={(e) => setCheckedInSearch(e.target.value)} className="w-full mt-4 px-4 py-2 bg-gray-50 border-none rounded-xl text-sm outline-none" />
+              <input type="text" placeholder="搜尋姓名或身分證..." value={checkedInSearch} onChange={(e) => setCheckedInSearch(e.target.value)} className="w-full mt-4 px-4 py-2 bg-gray-50 border-none rounded-xl text-sm outline-none" />
             </div>
             <div className="flex-grow overflow-y-auto p-6">
               <table className="w-full text-sm">
@@ -302,14 +291,14 @@ export default function App() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-50">
-                  {checkedIn.filter(c => c.name.includes(checkedInSearch) || c.phone.includes(checkedInSearch) || c.id.toUpperCase().includes(checkedInSearch.toUpperCase())).map(r => (
+                  {checkedIn.filter(c => c.name.includes(checkedInSearch) || c.id.toUpperCase().includes(checkedInSearch.toUpperCase())).map(r => (
                     <tr key={r.id}>
                       <td className="py-4">
                         <p className="font-medium text-gray-700">{r.name}</p>
                         <span className={`text-[10px] px-1 rounded ${r.status === '已報到' ? 'bg-emerald-50 text-emerald-600' : 'bg-gray-100 text-gray-500'}`}>{r.status}</span>
                       </td>
                       <td className="py-4">
-                        <p className="text-base text-gray-600">{r.phone}</p>
+                        <p className="text-base text-gray-600">生日：{r.birthday}</p>
                         <p className="text-base font-mono text-gray-400 uppercase">{r.id}</p>
                         <p className="text-base font-bold text-blue-500">進香禮品：{r.isPilgrimage === '是' || r.isPilgrimage === 'O' ? 'O' : 'X'}</p>
                       </td>
