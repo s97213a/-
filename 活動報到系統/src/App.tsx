@@ -46,6 +46,8 @@ export default function App() {
   const [hasSearched, setHasSearched] = useState(false);
   const [checkedInSearch, setCheckedInSearch] = useState('');
   const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [confirmDialog, setConfirmDialog] = useState<{ message: string, onConfirm: () => void } | null>(null);
+  const [alertDialog, setAlertDialog] = useState<string | null>(null);
   
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -55,7 +57,7 @@ export default function App() {
 
     // 監聽原始名單
     const unsubRegistrants = onSnapshot(collection(db, "registrants"), (snapshot) => {
-      const data = snapshot.docs.map(doc => ({ firebaseId: doc.id, ...doc.data() } as Registrant));
+      const data = snapshot.docs.map(doc => ({ ...doc.data(), firebaseId: doc.id } as Registrant));
       setRegistrants(data);
     });
 
@@ -63,8 +65,8 @@ export default function App() {
     const qCheckedIn = query(collection(db, "checkedIn"), orderBy("checkInTime", "desc"));
     const unsubCheckedIn = onSnapshot(qCheckedIn, (snapshot) => {
       const data = snapshot.docs.map(doc => ({ 
-        firebaseId: doc.id, 
-        ...(doc.data() as any)
+        ...(doc.data() as any),
+        firebaseId: doc.id
       }));
       setCheckedIn(data);
     });
@@ -79,26 +81,29 @@ export default function App() {
 
   // --- 2. 雲端清空功能 (使用 Batch 處理) ---
   const handleReset = async () => {
-    if (window.confirm("確定要清空雲端所有資料嗎？這將刪除目前匯入的名單與所有報到紀錄。")) {
-      try {
-        const batch = writeBatch(db);
-        
-        // 刪除所有名單
-        const regSnap = await getDocs(collection(db, "registrants"));
-        regSnap.forEach((d) => batch.delete(d.ref));
-        
-        // 刪除所有報到紀錄
-        const checkSnap = await getDocs(collection(db, "checkedIn"));
-        checkSnap.forEach((d) => batch.delete(d.ref));
+    setConfirmDialog({
+      message: "確定要清空雲端所有資料嗎？這將刪除目前匯入的名單與所有報到紀錄。",
+      onConfirm: async () => {
+        try {
+          const batch = writeBatch(db);
+          
+          // 刪除所有名單
+          const regSnap = await getDocs(collection(db, "registrants"));
+          regSnap.forEach((d) => batch.delete(d.ref));
+          
+          // 刪除所有報到紀錄
+          const checkSnap = await getDocs(collection(db, "checkedIn"));
+          checkSnap.forEach((d) => batch.delete(d.ref));
 
-        await batch.commit();
-        setSearchResults([]);
-        setHasSearched(false);
-        alert("雲端資料已完全清空");
-      } catch (e) {
-        alert("清空失敗，請檢查權限");
+          await batch.commit();
+          setSearchResults([]);
+          setHasSearched(false);
+          setAlertDialog("雲端資料已完全清空");
+        } catch (e) {
+          setAlertDialog("清空失敗，請檢查權限");
+        }
       }
-    }
+    });
   };
 
   // --- 3. 匯入 Excel 並同步至 Firebase ---
@@ -152,7 +157,7 @@ export default function App() {
         });
 
         if (uniqueNewRegistrants.length === 0) {
-          alert("沒有新增任何資料，上傳的名單皆已存在於系統中。");
+          setAlertDialog("沒有新增任何資料，上傳的名單皆已存在於系統中。");
           return;
         }
 
@@ -163,12 +168,12 @@ export default function App() {
             batch.set(docRef, item);
           });
           await batch.commit();
-          alert(`成功新增 ${uniqueNewRegistrants.length} 筆新名單至雲端！(略過 ${allImportedData.length - uniqueNewRegistrants.length} 筆重複資料)`);
+          setAlertDialog(`成功新增 ${uniqueNewRegistrants.length} 筆新名單至雲端！(略過 ${allImportedData.length - uniqueNewRegistrants.length} 筆重複資料)`);
         } catch (e) {
-          alert("上傳雲端失敗，請確認 Firebase Rules 設定。");
+          setAlertDialog("上傳雲端失敗，請確認 Firebase Rules 設定。");
         }
       } else {
-        alert("找不到有效的名單資料，請確認欄位名稱是否正確。");
+        setAlertDialog("找不到有效的名單資料，請確認欄位名稱是否正確。");
       }
     };
     reader.readAsBinaryString(file);
@@ -176,7 +181,7 @@ export default function App() {
 
   // --- 4. 搜尋邏輯 ---
   const handleSearch = () => {
-    if (registrants.length === 0) return alert('雲端尚無名單，請先匯入！');
+    if (registrants.length === 0) return setAlertDialog('雲端尚無名單，請先匯入！');
     setHasSearched(true);
     const term = inputValue.trim().toUpperCase();
     if (!term) return setSearchResults([]);
@@ -189,11 +194,12 @@ export default function App() {
 
   // --- 5. 報到/放棄 (寫入雲端) ---
   const handleAction = async (person: Registrant, status: '已報到' | '放棄領取') => {
-    if (checkedIn.some((r) => r.registrantId === person.firebaseId || (r.id === person.id && r.name === person.name))) return alert('此民眾已有紀錄！');
+    if (checkedIn.some((r) => r.registrantId === person.firebaseId || (r.id === person.id && r.name === person.name))) return setAlertDialog('此民眾已有紀錄！');
     
     try {
+      const { firebaseId, ...personData } = person;
       await addDoc(collection(db, "checkedIn"), {
-        ...person,
+        ...personData,
         registrantId: person.firebaseId,
         checkInTime: new Date().toISOString(),
         status
@@ -202,23 +208,26 @@ export default function App() {
       setInputValue('');
       setHasSearched(false);
     } catch (e) {
-      alert("儲存至雲端失敗");
+      setAlertDialog("儲存至雲端失敗");
     }
   };
 
   // --- 6. 刪除雲端單筆紀錄 ---
   const removeRecord = async (firebaseId: string) => {
-    if (window.confirm("確定要刪除此筆紀錄嗎？")) {
-      try {
-        await deleteDoc(doc(db, "checkedIn", firebaseId));
-      } catch (e) {
-        alert("刪除失敗");
+    setConfirmDialog({
+      message: "確定要刪除此筆紀錄嗎？",
+      onConfirm: async () => {
+        try {
+          await deleteDoc(doc(db, "checkedIn", firebaseId));
+        } catch (e) {
+          setAlertDialog("刪除失敗");
+        }
       }
-    }
+    });
   };
 
   const handleExport = () => {
-    if (checkedIn.length === 0) return alert('目前沒有報到資料。');
+    if (checkedIn.length === 0) return setAlertDialog('目前沒有報到資料。');
     const ws = XLSX.utils.json_to_sheet(checkedIn.map(r => ({
       '姓名': r.name,
       '身分證字號': r.id,
@@ -247,6 +256,33 @@ export default function App() {
 
   return (
     <div className="min-h-screen font-sans text-[#1a1a1a] bg-[#f5f5f0] p-4 sm:p-8">
+      {/* Alert Modal */}
+      {alertDialog && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="bg-white rounded-2xl p-6 max-w-sm w-full shadow-xl">
+            <h3 className="text-xl font-bold text-gray-800 mb-4">系統提示</h3>
+            <p className="text-gray-600 mb-6">{alertDialog}</p>
+            <div className="flex justify-end">
+              <button onClick={() => setAlertDialog(null)} className="bg-[#5A5A40] text-white px-6 py-2 rounded-xl hover:opacity-90">確定</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Confirm Modal */}
+      {confirmDialog && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="bg-white rounded-2xl p-6 max-w-sm w-full shadow-xl">
+            <h3 className="text-xl font-bold text-gray-800 mb-4">確認操作</h3>
+            <p className="text-gray-600 mb-6">{confirmDialog.message}</p>
+            <div className="flex justify-end gap-3">
+              <button onClick={() => setConfirmDialog(null)} className="bg-gray-200 text-gray-700 px-4 py-2 rounded-xl hover:bg-gray-300">取消</button>
+              <button onClick={() => { confirmDialog.onConfirm(); setConfirmDialog(null); }} className="bg-red-500 text-white px-6 py-2 rounded-xl hover:bg-red-600">確定</button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="max-w-7xl mx-auto mb-8 flex flex-col md:flex-row justify-between items-center gap-4">
         <div>
           <h1 className="text-3xl font-bold text-[#5A5A40]">報到系統</h1>
