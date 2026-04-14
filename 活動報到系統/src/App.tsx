@@ -182,7 +182,7 @@ export default function App() {
     if (!term) return setSearchResults([]);
 
     let found = registrants.filter((r) => 
-      r.id.toUpperCase().startsWith(term)
+      r.id.toUpperCase().endsWith(term)
     );
     setSearchResults(found);
   };
@@ -278,7 +278,7 @@ export default function App() {
               <Users size={20} className="text-[#5A5A40]"/> 櫃檯報到
             </h2>
             <div className="flex gap-2">
-              <input type="text" value={inputValue} onChange={(e) => setInputValue(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && handleSearch()} placeholder="輸入身分證前五碼 (或完整字號)" className="flex-grow px-5 py-3 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-[#5A5A40] outline-none" />
+              <input type="text" value={inputValue} onChange={(e) => setInputValue(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && handleSearch()} placeholder="輸入身分證後三碼 (或完整字號)" className="flex-grow px-5 py-3 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-[#5A5A40] outline-none" />
               <button onClick={handleSearch} className="bg-[#5A5A40] text-white p-4 rounded-2xl hover:opacity-90"><Search /></button>
             </div>
             <div className="mt-6 space-y-3">
